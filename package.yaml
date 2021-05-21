@@ -1,0 +1,32 @@
+name: spotify-cli
+version: 0.1.0.0
+license: MIT
+
+ghc-options:
+  - -Wall
+  - -Werror
+  - -O2
+
+dependencies:
+  - base
+
+executables:
+  spotify-cli:
+    main: Main.hs
+    source-dirs: app
+    dependencies:
+      - spotify-cli
+
+library:
+  source-dirs: src
+  dependencies:
+    - text
+
+tests:
+  test:
+    main: Spec.hs
+    source-dirs: test
+    dependencies:
+      - spotify-cli
+      - hspec
+      - hspec-discover

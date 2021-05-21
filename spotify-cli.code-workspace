@@ -1,0 +1,19 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "extensions": {
+    "recommendations": [
+      "haskell.haskell"
+    ]
+  },
+  "settings": {
+    "editor.renderWhitespace": "boundary",
+    "editor.tabSize": 2,
+    "editor.formatOnSave": true,
+    "haskell.formattingProvider": "ormolu",
+    "haskell.plugin.hlint.diagnosticsOn": true
+  }
+}
