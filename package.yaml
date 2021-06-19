@@ -16,13 +16,13 @@ executables:
     source-dirs: app
     dependencies:
       - spotify-cli
-      - optparse-applicative
 
 library:
   source-dirs: src
   dependencies:
     - text
     - dbus
+    - optparse-applicative
     - process
 
 tests:
