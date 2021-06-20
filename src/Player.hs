@@ -1,10 +1,39 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Player (play, pause, playPause) where
 
+import qualified DBus
+import qualified DBus.Client
+
 play :: IO ()
-play = print "play ..."
+play = do
+  client <- DBus.Client.connectSession
+  reply <-
+    DBus.Client.call_
+      client
+      (DBus.methodCall "/org/mpris/MediaPlayer2" "org.mpris.MediaPlayer2.Player" "Play")
+        { DBus.methodCallDestination = Just "org.mpris.MediaPlayer2.spotify"
+        }
+  print reply
 
 pause :: IO ()
-pause = print "pause ..."
+pause = do
+  client <- DBus.Client.connectSession
+  reply <-
+    DBus.Client.call_
+      client
+      (DBus.methodCall "/org/mpris/MediaPlayer2" "org.mpris.MediaPlayer2.Player" "Pause")
+        { DBus.methodCallDestination = Just "org.mpris.MediaPlayer2.spotify"
+        }
+  print reply
 
 playPause :: IO ()
-playPause = print "play/pause ..."
+playPause = do
+  client <- DBus.Client.connectSession
+  reply <-
+    DBus.Client.call_
+      client
+      (DBus.methodCall "/org/mpris/MediaPlayer2" "org.mpris.MediaPlayer2.Player" "PlayPause")
+        { DBus.methodCallDestination = Just "org.mpris.MediaPlayer2.spotify"
+        }
+  print reply
