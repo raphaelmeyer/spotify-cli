@@ -8,32 +8,25 @@ import qualified DBus.Client
 play :: IO ()
 play = do
   client <- DBus.Client.connectSession
-  reply <-
-    DBus.Client.call_
-      client
-      (DBus.methodCall "/org/mpris/MediaPlayer2" "org.mpris.MediaPlayer2.Player" "Play")
-        { DBus.methodCallDestination = Just "org.mpris.MediaPlayer2.spotify"
-        }
+  reply <- spotifyCommand client "Play"
   print reply
 
 pause :: IO ()
 pause = do
   client <- DBus.Client.connectSession
-  reply <-
-    DBus.Client.call_
-      client
-      (DBus.methodCall "/org/mpris/MediaPlayer2" "org.mpris.MediaPlayer2.Player" "Pause")
-        { DBus.methodCallDestination = Just "org.mpris.MediaPlayer2.spotify"
-        }
+  reply <- spotifyCommand client "Pause"
   print reply
 
 playPause :: IO ()
 playPause = do
   client <- DBus.Client.connectSession
-  reply <-
-    DBus.Client.call_
-      client
-      (DBus.methodCall "/org/mpris/MediaPlayer2" "org.mpris.MediaPlayer2.Player" "PlayPause")
-        { DBus.methodCallDestination = Just "org.mpris.MediaPlayer2.spotify"
-        }
+  reply <- spotifyCommand client "PlayPause"
   print reply
+
+spotifyCommand :: DBus.Client.Client -> DBus.MemberName -> IO DBus.MethodReturn
+spotifyCommand client command =
+  DBus.Client.call_
+    client
+    (DBus.methodCall "/org/mpris/MediaPlayer2" "org.mpris.MediaPlayer2.Player" command)
+      { DBus.methodCallDestination = Just "org.mpris.MediaPlayer2.spotify"
+      }
