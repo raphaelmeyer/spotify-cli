@@ -24,6 +24,7 @@ library:
     - dbus
     - optparse-applicative
     - process
+    - strict-concurrency
 
 tests:
   test:
