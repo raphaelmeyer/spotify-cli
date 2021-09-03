@@ -13,14 +13,14 @@ data Action = Player PlayerAction | Daemon DaemonAction deriving (Eq, Show)
 parse :: IO Action
 parse = execParser options
 
-run :: Action -> IO ()
+run :: Action -> IO (Either String ())
 run (Player a) = case a of
   Play -> P.play
   Pause -> P.pause
   PlayPause -> P.playPause
 run (Daemon a) = case a of
-  Start -> D.start
-  Stop -> D.stop
+  Start -> D.start >> return (Right ())
+  Stop -> D.stop >> return (Right ())
 
 actions :: Parser Action
 actions =

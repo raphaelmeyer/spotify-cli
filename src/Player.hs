@@ -10,25 +10,25 @@ import Data.Maybe (isJust)
 import qualified System.Process as Process
 import qualified System.Timeout as Timeout
 
-play :: IO ()
+play :: IO (Either String ())
 play = do
   client <- DBus.Client.connectSession
   startSpotify client
   _ <- spotifyCommand client "Play"
-  return ()
+  return (Right ())
 
-pause :: IO ()
+pause :: IO (Either String ())
 pause = do
   client <- DBus.Client.connectSession
   _ <- spotifyCommand client "Pause"
-  return ()
+  return (Right ())
 
-playPause :: IO ()
+playPause :: IO (Either String ())
 playPause = do
   client <- DBus.Client.connectSession
   startSpotify client
   _ <- spotifyCommand client "PlayPause"
-  return ()
+  return (Right ())
 
 spotifyCommand :: DBus.Client.Client -> DBus.MemberName -> IO DBus.MethodReturn
 spotifyCommand client command =
@@ -37,6 +37,9 @@ spotifyCommand client command =
     (DBus.methodCall "/org/mpris/MediaPlayer2" "org.mpris.MediaPlayer2.Player" command)
       { DBus.methodCallDestination = Just "org.mpris.MediaPlayer2.spotify"
       }
+
+-- catch ClientError
+-- return type ? Maybe () ? Either String () ?
 
 startSpotify :: DBus.Client.Client -> IO ()
 startSpotify client = do
@@ -59,6 +62,8 @@ spotifyAvailable client = do
       (DBus.methodCall "/org/freedesktop/DBus" "org.freedesktop.DBus" "ListNames")
         { DBus.methodCallDestination = Just "org.freedesktop.DBus"
         }
+
+  -- call_ => call -> Either DBus.MethodError DBus.MethodReturn
 
   let Just names = DBus.fromVariant (head . DBus.methodReturnBody $ reply)
 
