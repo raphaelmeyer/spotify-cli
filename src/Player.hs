@@ -3,7 +3,8 @@
 module Player (play, pause, playPause) where
 
 import qualified Control.Concurrent.MVar.Strict as MVar
-import Control.Monad (when)
+import Control.Monad (unless, when)
+import Control.Monad.Trans.Except
 import qualified DBus
 import qualified DBus.Client
 import Data.Maybe (isJust)
@@ -13,7 +14,7 @@ import qualified System.Timeout as Timeout
 play :: IO (Either String ())
 play = do
   client <- DBus.Client.connectSession
-  startSpotify client
+  _ <- startSpotify client
   _ <- spotifyCommand client "Play"
   return (Right ())
 
@@ -26,7 +27,7 @@ pause = do
 playPause :: IO (Either String ())
 playPause = do
   client <- DBus.Client.connectSession
-  startSpotify client
+  _ <- startSpotify client
   _ <- spotifyCommand client "PlayPause"
   return (Right ())
 
@@ -38,36 +39,37 @@ spotifyCommand client command =
       { DBus.methodCallDestination = Just "org.mpris.MediaPlayer2.spotify"
       }
 
--- catch ClientError
--- return type ? Maybe () ? Either String () ?
+startSpotify :: DBus.Client.Client -> IO (Either String ())
+startSpotify client = runExceptT $ do
+  running <- ExceptT $ spotifyAvailable client
+  unless running (ExceptT (spawnSpotify client))
 
-startSpotify :: DBus.Client.Client -> IO ()
-startSpotify client = do
-  running <- spotifyAvailable client
-  if running
-    then return ()
-    else do
-      done <- MVar.newEmptyMVar
-      listener <- DBus.Client.addMatch client DBus.Client.matchAny {DBus.Client.matchMember = Just "NameOwnerChanged"} (notifyStarted done)
-      _ <- Process.spawnCommand "spotify"
-      started <- Timeout.timeout 10000000 (MVar.takeMVar done)
-      DBus.Client.removeMatch client listener
-      when (isJust started) $ return ()
+spawnSpotify :: DBus.Client.Client -> IO (Either String ())
+spawnSpotify client = do
+  done <- MVar.newEmptyMVar
+  listener <- DBus.Client.addMatch client DBus.Client.matchAny {DBus.Client.matchMember = Just "NameOwnerChanged"} (notifyStarted done)
+  _ <- Process.spawnCommand "spotify"
+  started <- Timeout.timeout 10000000 (MVar.takeMVar done)
+  DBus.Client.removeMatch client listener
+  if isJust started
+    then return $ Right ()
+    else return $ Left "Could not start spotify client."
 
-spotifyAvailable :: DBus.Client.Client -> IO Bool
+spotifyAvailable :: DBus.Client.Client -> IO (Either String Bool)
 spotifyAvailable client = do
   reply <-
-    DBus.Client.call_
+    DBus.Client.call
       client
       (DBus.methodCall "/org/freedesktop/DBus" "org.freedesktop.DBus" "ListNames")
         { DBus.methodCallDestination = Just "org.freedesktop.DBus"
         }
 
-  -- call_ => call -> Either DBus.MethodError DBus.MethodReturn
-
-  let Just names = DBus.fromVariant (head . DBus.methodReturnBody $ reply)
-
-  return ("org.mpris.MediaPlayer2.spotify" `elem` (names :: [String]))
+  case reply of
+    Left err -> return (Left . show $ err)
+    Right methodReturn ->
+      return (Right ("org.mpris.MediaPlayer2.spotify" `elem` (names :: [String])))
+      where
+        Just names = DBus.fromVariant (head . DBus.methodReturnBody $ methodReturn)
 
 notifyStarted :: MVar.MVar () -> DBus.Signal -> IO ()
 notifyStarted done signal = do

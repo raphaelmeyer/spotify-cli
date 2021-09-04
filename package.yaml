@@ -25,6 +25,7 @@ library:
     - optparse-applicative
     - process
     - strict-concurrency
+    - transformers
 
 tests:
   test:
