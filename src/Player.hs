@@ -1,76 +1,80 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Player (play, pause, playPause) where
+module Player (play, pause, playPause, Error, Result) where
 
 import qualified Control.Concurrent.MVar.Strict as MVar
-import Control.Monad (unless, when)
-import Control.Monad.Trans.Except
+import Control.Monad.Except
 import qualified DBus
 import qualified DBus.Client
 import Data.Maybe (isJust)
 import qualified System.Process as Process
 import qualified System.Timeout as Timeout
 
-play :: IO (Either String ())
+type Error = String
+
+type Result = ExceptT Error IO ()
+
+play :: Result
 play = do
-  client <- DBus.Client.connectSession
-  _ <- startSpotify client
-  _ <- spotifyCommand client "Play"
-  return (Right ())
+  client <- liftIO DBus.Client.connectSession
+  startSpotify client >> spotifyCommand client "Play"
 
-pause :: IO (Either String ())
+pause :: Result
 pause = do
-  client <- DBus.Client.connectSession
-  _ <- spotifyCommand client "Pause"
-  return (Right ())
+  client <- liftIO DBus.Client.connectSession
+  spotifyCommand client "Pause"
 
-playPause :: IO (Either String ())
+playPause :: Result
 playPause = do
-  client <- DBus.Client.connectSession
-  _ <- startSpotify client
-  _ <- spotifyCommand client "PlayPause"
-  return (Right ())
+  client <- liftIO DBus.Client.connectSession
+  startSpotify client >> spotifyCommand client "PlayPause"
 
-spotifyCommand :: DBus.Client.Client -> DBus.MemberName -> IO DBus.MethodReturn
-spotifyCommand client command =
-  DBus.Client.call_
-    client
-    (DBus.methodCall "/org/mpris/MediaPlayer2" "org.mpris.MediaPlayer2.Player" command)
-      { DBus.methodCallDestination = Just "org.mpris.MediaPlayer2.spotify"
-      }
+spotifyCommand :: DBus.Client.Client -> DBus.MemberName -> Result
+spotifyCommand client command = do
+  liftIO $ print command -- development log
+  reply <-
+    liftIO $
+      DBus.Client.call
+        client
+        (DBus.methodCall "/org/mpris/MediaPlayer2" "org.mpris.MediaPlayer2.Player" command)
+          { DBus.methodCallDestination = Just "org.mpris.MediaPlayer2.spotify"
+          }
+  case reply of
+    Left err -> throwError $ show err
+    Right _ -> return ()
 
-startSpotify :: DBus.Client.Client -> IO (Either String ())
-startSpotify client = runExceptT $ do
-  running <- ExceptT $ spotifyAvailable client
-  unless running (ExceptT (spawnSpotify client))
+startSpotify :: DBus.Client.Client -> Result
+startSpotify client = do
+  running <- spotifyAvailable client
+  unless running (spawnSpotify client)
 
-spawnSpotify :: DBus.Client.Client -> IO (Either String ())
+-- if running then throwError "inject error for testing" else spawnSpotify client
+
+spawnSpotify :: DBus.Client.Client -> Result
 spawnSpotify client = do
-  done <- MVar.newEmptyMVar
-  listener <- DBus.Client.addMatch client DBus.Client.matchAny {DBus.Client.matchMember = Just "NameOwnerChanged"} (notifyStarted done)
-  _ <- Process.spawnCommand "spotify"
-  started <- Timeout.timeout 10000000 (MVar.takeMVar done)
-  DBus.Client.removeMatch client listener
-  if isJust started
-    then return $ Right ()
-    else return $ Left "Could not start spotify client."
+  done <- liftIO MVar.newEmptyMVar
+  listener <- liftIO $ DBus.Client.addMatch client DBus.Client.matchAny {DBus.Client.matchMember = Just "NameOwnerChanged"} (notifyStarted done)
+  _ <- liftIO $ Process.spawnCommand "spotify"
+  started <- liftIO $ Timeout.timeout 10000000 (MVar.takeMVar done)
+  liftIO $ DBus.Client.removeMatch client listener
+  unless (isJust started) (throwError "Could not start spotify client.")
 
-spotifyAvailable :: DBus.Client.Client -> IO (Either String Bool)
+spotifyAvailable :: DBus.Client.Client -> ExceptT String IO Bool
 spotifyAvailable client = do
   reply <-
-    DBus.Client.call
-      client
-      (DBus.methodCall "/org/freedesktop/DBus" "org.freedesktop.DBus" "ListNames")
-        { DBus.methodCallDestination = Just "org.freedesktop.DBus"
-        }
+    liftIO $
+      DBus.Client.call
+        client
+        (DBus.methodCall "/org/freedesktop/DBus" "org.freedesktop.DBus" "ListNames")
+          { DBus.methodCallDestination = Just "org.freedesktop.DBus"
+          }
 
   case reply of
-    Left err -> return (Left . show $ err)
-    Right methodReturn ->
-      return (Right ("org.mpris.MediaPlayer2.spotify" `elem` (names :: [String])))
+    Left err -> throwError $ show err
+    Right methodReturn -> return $ "org.mpris.MediaPlayer2.spotify" `elem` (names :: [String])
       where
         Just names = DBus.fromVariant (head . DBus.methodReturnBody $ methodReturn)
 
 notifyStarted :: MVar.MVar () -> DBus.Signal -> IO ()
-notifyStarted done signal = do
+notifyStarted done signal =
   when (DBus.toVariant ("org.mpris.MediaPlayer2.spotify" :: String) `elem` DBus.signalBody signal) $ MVar.putMVar done ()
