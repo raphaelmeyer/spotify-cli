@@ -12,24 +12,24 @@ import qualified System.Timeout as Timeout
 
 type Error = String
 
-type Result = ExceptT Error IO ()
+type Result = ExceptT Error IO
 
-play :: Result
+play :: Result ()
 play = do
   client <- liftIO DBus.Client.connectSession
   startSpotify client >> spotifyCommand client "Play"
 
-pause :: Result
+pause :: Result ()
 pause = do
   client <- liftIO DBus.Client.connectSession
   spotifyCommand client "Pause"
 
-playPause :: Result
+playPause :: Result ()
 playPause = do
   client <- liftIO DBus.Client.connectSession
   startSpotify client >> spotifyCommand client "PlayPause"
 
-spotifyCommand :: DBus.Client.Client -> DBus.MemberName -> Result
+spotifyCommand :: DBus.Client.Client -> DBus.MemberName -> Result ()
 spotifyCommand client command = do
   liftIO $ print command -- development log
   reply <-
@@ -43,14 +43,14 @@ spotifyCommand client command = do
     Left err -> throwError $ show err
     Right _ -> return ()
 
-startSpotify :: DBus.Client.Client -> Result
+startSpotify :: DBus.Client.Client -> Result ()
 startSpotify client = do
   running <- spotifyAvailable client
   unless running (spawnSpotify client)
 
 -- if running then throwError "inject error for testing" else spawnSpotify client
 
-spawnSpotify :: DBus.Client.Client -> Result
+spawnSpotify :: DBus.Client.Client -> Result ()
 spawnSpotify client = do
   done <- liftIO MVar.newEmptyMVar
   listener <- liftIO $ DBus.Client.addMatch client DBus.Client.matchAny {DBus.Client.matchMember = Just "NameOwnerChanged"} (notifyStarted done)
@@ -59,7 +59,7 @@ spawnSpotify client = do
   liftIO $ DBus.Client.removeMatch client listener
   unless (isJust started) (throwError "Could not start spotify client.")
 
-spotifyAvailable :: DBus.Client.Client -> ExceptT String IO Bool
+spotifyAvailable :: DBus.Client.Client -> Result Bool
 spotifyAvailable client = do
   reply <-
     liftIO $
@@ -68,7 +68,6 @@ spotifyAvailable client = do
         (DBus.methodCall "/org/freedesktop/DBus" "org.freedesktop.DBus" "ListNames")
           { DBus.methodCallDestination = Just "org.freedesktop.DBus"
           }
-
   case reply of
     Left err -> throwError $ show err
     Right methodReturn -> return $ "org.mpris.MediaPlayer2.spotify" `elem` (names :: [String])
