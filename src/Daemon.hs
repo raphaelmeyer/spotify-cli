@@ -1,7 +1,13 @@
 module Daemon (start, stop) where
 
-start :: IO ()
-start = print "start daemon..."
+import Control.Monad.Except
 
-stop :: IO ()
-stop = print "slay daemon!"
+type Error = String
+
+type Result = ExceptT Error IO
+
+start :: Result ()
+start = liftIO $ print "start daemon..."
+
+stop :: Result ()
+stop = liftIO $ print "slay daemon!"

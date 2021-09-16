@@ -15,13 +15,13 @@ parse :: IO Action
 parse = execParser options
 
 run :: Action -> IO (Either String ())
-run (Player a) = case a of
-  Play -> runExceptT P.play
-  Pause -> runExceptT P.pause
-  PlayPause -> runExceptT P.playPause
-run (Daemon a) = case a of
-  Start -> D.start >> return (Right ())
-  Stop -> D.stop >> return (Right ())
+run (Player a) = runExceptT $ case a of
+  Play -> P.play
+  Pause -> P.pause
+  PlayPause -> P.playPause
+run (Daemon a) = runExceptT $ case a of
+  Start -> D.start
+  Stop -> D.stop
 
 actions :: Parser Action
 actions =

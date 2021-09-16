@@ -31,7 +31,6 @@ playPause = do
 
 spotifyCommand :: DBus.Client.Client -> DBus.MemberName -> Result ()
 spotifyCommand client command = do
-  liftIO $ print command -- development log
   reply <-
     liftIO $
       DBus.Client.call
@@ -47,8 +46,6 @@ startSpotify :: DBus.Client.Client -> Result ()
 startSpotify client = do
   running <- spotifyAvailable client
   unless running (spawnSpotify client)
-
--- if running then throwError "inject error for testing" else spawnSpotify client
 
 spawnSpotify :: DBus.Client.Client -> Result ()
 spawnSpotify client = do
