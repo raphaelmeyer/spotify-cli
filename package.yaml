@@ -16,6 +16,7 @@ executables:
     source-dirs: app
     dependencies:
       - spotify-cli
+      - mtl
 
 library:
   source-dirs: src
