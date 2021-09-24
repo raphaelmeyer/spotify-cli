@@ -3,7 +3,7 @@
 module Player (play, pause, playPause) where
 
 import qualified Control.Concurrent.MVar.Strict as MVar
-import Control.Exception.Base (Exception, throw)
+import Control.Exception (Exception, bracket, throw)
 import qualified DBus
 import qualified DBus.Client
 import Data.Maybe (isJust)
@@ -24,7 +24,7 @@ playPause :: IO ()
 playPause = withDBus (`spotifyCommand` "PlayPause")
 
 withDBus :: (DBus.Client.Client -> IO ()) -> IO ()
-withDBus command = DBus.Client.connectSession >>= command
+withDBus = bracket DBus.Client.connectSession DBus.Client.disconnect
 
 spotifyCommand :: DBus.Client.Client -> DBus.MemberName -> IO ()
 spotifyCommand client command = do
