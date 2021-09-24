@@ -4,6 +4,7 @@ module Player (play, pause, playPause) where
 
 import qualified Control.Concurrent.MVar.Strict as MVar
 import Control.Exception (Exception, bracket, throw)
+import Control.Monad (unless, when)
 import qualified DBus
 import qualified DBus.Client
 import Data.Maybe (isJust)
@@ -41,7 +42,7 @@ spotifyCommand client command = do
 startSpotify :: DBus.Client.Client -> IO ()
 startSpotify client = do
   running <- spotifyAvailable client
-  if running then pure () else spawnSpotify client
+  unless running $ spawnSpotify client
 
 spawnSpotify :: DBus.Client.Client -> IO ()
 spawnSpotify client = do
@@ -50,7 +51,7 @@ spawnSpotify client = do
   _ <- Process.spawnCommand "spotify"
   started <- Timeout.timeout 10000000 (MVar.takeMVar done)
   DBus.Client.removeMatch client listener
-  if isJust started then pure () else throw StartSpotifyFailed
+  unless (isJust started) $ throw StartSpotifyFailed
 
 spotifyAvailable :: DBus.Client.Client -> IO Bool
 spotifyAvailable client = do
@@ -68,4 +69,4 @@ spotifyAvailable client = do
 
 notifyStarted :: MVar.MVar () -> DBus.Signal -> IO ()
 notifyStarted done signal =
-  if DBus.toVariant ("org.mpris.MediaPlayer2.spotify" :: String) `elem` DBus.signalBody signal then MVar.putMVar done () else pure ()
+  when (DBus.toVariant ("org.mpris.MediaPlayer2.spotify" :: String) `elem` DBus.signalBody signal) $ MVar.putMVar done ()
