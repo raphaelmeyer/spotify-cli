@@ -1,6 +1,5 @@
 module Command (parse, run) where
 
-import Control.Monad.Except
 import qualified Daemon as D
 import Options.Applicative
 import qualified Player as P
@@ -11,12 +10,10 @@ data PlayerAction = Play | Pause | PlayPause deriving (Eq, Show)
 
 data Action = Player PlayerAction | Daemon DaemonAction deriving (Eq, Show)
 
-type Result = ExceptT String IO
-
 parse :: IO Action
 parse = execParser options
 
-run :: Action -> Result ()
+run :: Action -> IO ()
 run (Player a) = case a of
   Play -> P.play
   Pause -> P.pause
