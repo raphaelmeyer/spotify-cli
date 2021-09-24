@@ -15,19 +15,16 @@ data PlayerException = CommandFailed | DBusFailure | StartSpotifyFailed deriving
 instance Exception PlayerException
 
 play :: IO ()
-play = do
-  client <- DBus.Client.connectSession
-  startSpotify client >> spotifyCommand client "Play"
+play = withDBus (\client -> startSpotify client >> spotifyCommand client "Play")
 
 pause :: IO ()
-pause = do
-  client <- DBus.Client.connectSession
-  spotifyCommand client "Pause"
+pause = withDBus (`spotifyCommand` "Pause")
 
 playPause :: IO ()
-playPause = do
-  client <- DBus.Client.connectSession
-  startSpotify client >> spotifyCommand client "PlayPause"
+playPause = withDBus (`spotifyCommand` "PlayPause")
+
+withDBus :: (DBus.Client.Client -> IO ()) -> IO ()
+withDBus command = DBus.Client.connectSession >>= command
 
 spotifyCommand :: DBus.Client.Client -> DBus.MemberName -> IO ()
 spotifyCommand client command = do
